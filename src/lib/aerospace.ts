@@ -197,14 +197,14 @@ export class AeroSpace {
 
     try {
       const parsed = JSON.parse(output) as RawWorkspaceJson[];
-      const workspaces: WorkspaceInfo[] = parsed.map((ws: RawWorkspaceJson) => ({
-        workspace: ws['workspace'],
-        isFocused: ws['workspace-is-focused'] ?? false,
-        isVisible: ws['workspace-is-visible'] ?? false,
-        rootContainerLayout: ws['workspace-root-container-layout'] ?? '',
-        monitorId: ws['monitor-id'],
-        monitorName: ws['monitor-name'],
-        monitorIsMain: ws['monitor-is-main'] ?? false,
+      const workspaces: WorkspaceInfo[] = parsed.map((workspace: RawWorkspaceJson) => ({
+        workspace: workspace['workspace'],
+        isFocused: workspace['workspace-is-focused'] ?? false,
+        isVisible: workspace['workspace-is-visible'] ?? false,
+        rootContainerLayout: workspace['workspace-root-container-layout'] ?? '',
+        monitorId: workspace['monitor-id'],
+        monitorName: workspace['monitor-name'],
+        monitorIsMain: workspace['monitor-is-main'] ?? false,
       }));
 
       return workspaces;
@@ -222,9 +222,9 @@ export class AeroSpace {
       return null;
     }
 
-    const foundWindows = windows.filter(w => {
-      const matchesName = w.appName === name;
-      const matchesTitle = title ? (w.windowTitle || '').includes(title) : true;
+    const foundWindows = windows.filter(window => {
+      const matchesName = window.appName === name;
+      const matchesTitle = title ? (window.windowTitle || '').includes(title) : true;
       return matchesName && matchesTitle;
     });
 
@@ -297,11 +297,11 @@ export class AeroSpace {
 
     try {
       const parsed = JSON.parse(output) as RawWorkspaceJson[];
-      const displays = parsed.map((w: RawWorkspaceJson) => ({
-        monitorId: w['monitor-id'] ?? '',
-        monitorAppkitNsscreenScreensId: w['monitor-appkit-nsscreen-screens-id'] ?? '',
-        monitorName: w['monitor-name'] ?? '',
-        monitorIsMain: w['monitor-is-main'] ?? false,
+      const displays = parsed.map((window: RawWorkspaceJson) => ({
+        monitorId: window['monitor-id'] ?? '',
+        monitorAppkitNsscreenScreensId: window['monitor-appkit-nsscreen-screens-id'] ?? '',
+        monitorName: window['monitor-name'] ?? '',
+        monitorIsMain: window['monitor-is-main'] ?? false,
       }));
 
       return displays.length > 0 ? displays[0] : null;

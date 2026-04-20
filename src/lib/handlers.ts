@@ -36,23 +36,6 @@ export function computeGapForWorkspace(
   return gap;
 }
 
-export function setDefaultBrowser(aerospaceFocusedWorkspace: number | string) {
-  switch (Number(aerospaceFocusedWorkspace)) {
-    case 1:
-    case 2:
-    case 3:
-      logger.info(`Setting default browser to Chrome for workspace ${aerospaceFocusedWorkspace}`);
-      break;
-    case 4:
-    case 5:
-    case 6:
-      logger.info(`Setting default browser to Brave for workspace ${aerospaceFocusedWorkspace}`);
-      break;
-    default:
-      logger.debug('No handler for new workspace in onWorkSpaceChange');
-  }
-}
-
 export function setNewWorkspaceLayout(
   previousWorkspaceLayoutMode: LayoutMode,
   targetWorkspaceLayoutMode: LayoutMode,
@@ -102,16 +85,18 @@ export function handleConcentrateMode() {
   const previousWorkspaceLayoutMode =
     aerospace.aerospaceRun.workspaceState[previousWorkspaceKey]?.layoutMode ?? LAYOUT_MODE.FALSE;
 
-  logger.debug(
-    `previousWorkspaceLayoutMode: ${previousWorkspaceLayoutMode} - concentrate-mode args handler`
-  );
+  const localLogger = logger.child({
+    context: handleConcentrateMode.name,
+    previousWorkspaceKey,
+    previousWorkspaceLayoutMode,
+  });
 
   if (previousWorkspaceLayoutMode === LAYOUT_MODE.CONCENTRATE) {
-    logger.debug(`Set ${LAYOUT_MODE.FALSE}-mode`);
+    localLogger.debug(`Set ${LAYOUT_MODE.FALSE}-mode`);
     aerospace.setOuterLeftRightGapsAndReload(0);
     aerospace.setPreviousWorkspaceLayoutMode(LAYOUT_MODE.FALSE);
   } else if (previousWorkspaceLayoutMode === LAYOUT_MODE.FALSE) {
-    logger.debug(`Set ${LAYOUT_MODE.CONCENTRATE}-mode`);
+    localLogger.debug(`Set ${LAYOUT_MODE.CONCENTRATE}-mode`);
     const targetWorkspace = aerospace.aerospaceRun.previousWorkspace;
     const gap = computeGapForWorkspace(targetWorkspace);
     aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
@@ -120,18 +105,36 @@ export function handleConcentrateMode() {
 }
 
 export function handleToggleTerminal() {
-  logger.info('test');
+  let localLogger = logger.child({
+    context: handleConcentrateMode.name,
+  });
+  localLogger.debug('Handling');
   const terminalWindow = aerospace.findWindow(TERMINAL as string);
-  if (!terminalWindow) return;
+
+  if (!terminalWindow) {
+    localLogger.debug('No terminalwindow was found doing nothing');
+    return;
+  }
+
+  localLogger = localLogger.child({ terminalWindow });
 
   if (String(terminalWindow.workspace) === TERMINAL_WORKSPACE) {
     const activeWorkspaceName = aerospace.getActiveWorkspaceName();
+    localLogger.debug(
+      { workspaceName: activeWorkspaceName },
+      'Moving terminal to active workspace'
+    );
+
     aerospace.moveNodeToWorkSpace(
       terminalWindow.windowId,
       activeWorkspaceName ?? TERMINAL_WORKSPACE
     );
     aerospace.focus(terminalWindow.windowId);
   } else {
+    localLogger.debug(
+      { workspaceName: TERMINAL_WORKSPACE },
+      'Moving terminal to Terminal workspace'
+    );
     aerospace.moveNodeToWorkSpace(terminalWindow.windowId, TERMINAL_WORKSPACE);
   }
 }
