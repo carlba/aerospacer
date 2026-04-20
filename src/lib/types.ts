@@ -94,7 +94,12 @@ export interface RawWorkspaceJson {
   'monitor-is-main'?: boolean | string;
 }
 
+export interface WorkspaceState {
+  layoutMode: LayoutMode;
+  windowCount: number;
+}
+
 export interface AerospaceRun {
   previousWorkspace: number;
-  layoutMode: Record<string, LayoutMode>;
+  workspaceState: Record<string, WorkspaceState>;
 }

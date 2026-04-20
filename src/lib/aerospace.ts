@@ -8,6 +8,7 @@ import type {
   RawWorkspaceJson,
   AerospaceRun,
   LayoutMode,
+  WorkspaceState,
   DisplayInfo,
 } from './types.js';
 import { logger } from './logger.js';
@@ -23,12 +24,19 @@ export class AeroSpace {
     }
   }
 
+  private createDefaultWorkspaceState(): Record<string, WorkspaceState> {
+    return Object.fromEntries(
+      Array.from({ length: 10 }, (_, i) => [
+        String(i + 1),
+        { layoutMode: LAYOUT_MODE.FALSE, windowCount: 0 },
+      ])
+    ) as Record<string, WorkspaceState>;
+  }
+
   initalize() {
     this.aerospaceRun = {
       previousWorkspace: 0,
-      layoutMode: Object.fromEntries(
-        Array.from({ length: 10 }, (_, i) => [String(i + 1), LAYOUT_MODE.FALSE])
-      ) as Record<string, LayoutMode>,
+      workspaceState: this.createDefaultWorkspaceState(),
     };
 
     this.persist();
@@ -40,16 +48,17 @@ export class AeroSpace {
       logger.debug(`layoutMode: ${layoutMode} must be in ${Object.values(LAYOUT_MODE)}`);
       return;
     }
-    fs.writeFileSync(
-      RUN_FILE_PATH,
-      JSON.stringify({
-        ...this.aerospaceRun,
-        layoutMode: {
-          ...this.aerospaceRun.layoutMode,
-          [String(this.aerospaceRun.previousWorkspace)]: layoutMode,
-        },
-      })
-    );
+
+    const workspaceKey = String(this.aerospaceRun.previousWorkspace);
+    this.aerospaceRun.workspaceState = {
+      ...this.aerospaceRun.workspaceState,
+      [workspaceKey]: {
+        ...this.aerospaceRun.workspaceState[workspaceKey],
+        layoutMode,
+      },
+    };
+
+    this.persist();
   }
 
   persist() {
@@ -58,7 +67,45 @@ export class AeroSpace {
 
   load() {
     try {
-      this.aerospaceRun = JSON.parse(fs.readFileSync(RUN_FILE_PATH, 'utf8')) as AerospaceRun;
+      const raw = JSON.parse(fs.readFileSync(RUN_FILE_PATH, 'utf8')) as Record<string, unknown>;
+
+      if (raw && typeof raw === 'object') {
+        const previousWorkspace = Number(raw.previousWorkspace ?? 0);
+
+        if (
+          'workspaceState' in raw &&
+          raw.workspaceState &&
+          typeof raw.workspaceState === 'object'
+        ) {
+          this.aerospaceRun = {
+            previousWorkspace,
+            workspaceState: {
+              ...this.createDefaultWorkspaceState(),
+              ...(raw.workspaceState as Record<string, WorkspaceState>),
+            },
+          };
+          return;
+        }
+
+        if ('layoutMode' in raw && raw.layoutMode && typeof raw.layoutMode === 'object') {
+          const layoutMode = raw.layoutMode as Record<string, LayoutMode>;
+          this.aerospaceRun = {
+            previousWorkspace,
+            workspaceState: {
+              ...this.createDefaultWorkspaceState(),
+              ...Object.fromEntries(
+                Object.entries(layoutMode).map(([workspace, mode]) => [
+                  workspace,
+                  { layoutMode: mode as LayoutMode, windowCount: 0 },
+                ])
+              ),
+            } as Record<string, WorkspaceState>,
+          };
+          return;
+        }
+      }
+
+      throw new Error('Unsupported Aerospace runtime format');
     } catch (error) {
       logger.error(`Failed to load Aerospace runtime ${RUN_FILE_PATH} ${(error as Error).message}`);
       this.initalize();
