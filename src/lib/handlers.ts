@@ -4,15 +4,18 @@ import { displayResolution, LAYOUT_MODE, TERMINAL_WORKSPACE, TERMINAL } from './
 import type { WindowInfo } from './types.js';
 
 // computeGapForWorkspace needs the `aerospace` instance and displayResolution
-export function computeGapForWorkspace(workspace: string | number): number {
+export function computeGapForWorkspace(
+  workspace: string | number,
+  prefetchedWindows?: WindowInfo[]
+): number {
   const DESIRED_WINDOW_WIDTH = 1280;
   const MIN_GAP = 64;
   const currentDisplay = aerospace.getCurrentDisplay()?.monitorName ?? 'Built-in Display';
   const monitorWidth = displayResolution[currentDisplay] ?? 2400;
 
-  const windows = ((aerospace.listWindows(workspace) ?? []) as WindowInfo[]).filter(
-    (w: WindowInfo) => w.windowLayout !== 'floating'
-  );
+  const allWindows =
+    prefetchedWindows ?? ((aerospace.listWindows(workspace) ?? []) as WindowInfo[]);
+  const windows = allWindows.filter((w: WindowInfo) => w.windowLayout !== 'floating');
   const count = windows.length > 0 ? windows.length : 1;
 
   const neededCentralWidth = count * DESIRED_WINDOW_WIDTH;
@@ -31,23 +34,6 @@ export function computeGapForWorkspace(workspace: string | number): number {
     `computeGapForWorkspace workspace=${workspace} monitorWidth=${monitorWidth} windows=${count} gap=${gap} desired=${DESIRED_WINDOW_WIDTH}`
   );
   return gap;
-}
-
-export function reload() {
-  logger.info(`Killing AeroSpace and restarting it`);
-  aerospace.hardReload();
-
-  const foundCbackstromWindow = aerospace.findWindow('Code', 'cbackstrom');
-  if (foundCbackstromWindow?.windowId) {
-    aerospace.focus(foundCbackstromWindow.windowId);
-    aerospace.move('left');
-  }
-
-  const foundPocketLawWindow = aerospace.findWindow('Code', 'pocketlaw');
-  if (foundPocketLawWindow?.windowId) {
-    aerospace.focus(foundPocketLawWindow.windowId);
-    aerospace.move('left');
-  }
 }
 
 export function setDefaultBrowser(aerospaceFocusedWorkspace: number | string) {
@@ -105,8 +91,6 @@ export function handleWorkspaceChange(
     `Target Workspace number: ${targetWorkspace} layout mode: ${targetWorkspaceLayoutMode} Previous Workspace number: ${previousWorkspace} layout mode: ${previousWorkspaceLayoutMode}`
   );
   setNewWorkspaceLayout(previousWorkspaceLayoutMode, targetWorkspaceLayoutMode, targetWorkspace);
-  aerospace.persist();
-  // setDefaultBrowser(targetWorkspace);
 }
 
 export function handleConcentrateMode() {
@@ -128,8 +112,6 @@ export function handleConcentrateMode() {
     aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
     aerospace.setPreviousWorkspaceLayoutMode(LAYOUT_MODE.CONCENTRATE);
   }
-
-  aerospace.reloadConfig();
 }
 
 export function handleToggleTerminal() {
@@ -163,7 +145,7 @@ export function handleOnFocusChanged() {
 
     logger.info(`Windows in current workspace ${windowsInCurrentWorkspace.length}`);
 
-    const gap = computeGapForWorkspace(activeWorkspaceName ?? 0);
+    const gap = computeGapForWorkspace(activeWorkspaceName ?? 0, windowsInCurrentWorkspace);
     aerospace.setOuterGapsAndReload(gap, gap, activeWorkspaceName ?? 0);
   }
 
@@ -174,9 +156,6 @@ export function handleOnFocusChanged() {
 
 export function handleArgs(args: string[]) {
   logger.info(`Processing args ${args.length === 0 ? 'empty' : args}`);
-  if (args[0] === 'reload') {
-    reload();
-  }
 
   if (args[0] === 'on-workspace-change') {
     const targetWorkspace = process.env.AEROSPACE_FOCUSED_WORKSPACE;

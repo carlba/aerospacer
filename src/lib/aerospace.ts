@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { runCommandSync, replaceTomlValue } from './commands.js';
+import { runCommandSync, replaceTomlValues } from './commands.js';
 import { LAYOUT_MODE, CONFIG_FILE_PATH, RUN_FILE_PATH } from './types.js';
 import type {
   WindowInfo,
@@ -287,10 +287,10 @@ export class AeroSpace {
     return runCommandSync(`aerospace focus --window-id ${id}`);
   }
 
-  hardReload() {
+  async hardReload() {
     runCommandSync(`pkill AeroSpace`);
     runCommandSync(`open -a AeroSpace`);
-    runCommandSync(`sleep 0.05`);
+    await new Promise<void>(resolve => setTimeout(resolve, 50));
   }
 
   move(direction: 'left' | 'right') {
@@ -305,16 +305,21 @@ export class AeroSpace {
   }
 
   setOuterLeftRightGapsAndReload(value: string | number) {
-    replaceTomlValue(CONFIG_FILE_PATH, 'outer.left', value);
-    replaceTomlValue(CONFIG_FILE_PATH, 'outer.right', value);
+    replaceTomlValues(CONFIG_FILE_PATH, [
+      { key: 'outer.left', value },
+      { key: 'outer.right', value },
+    ]);
     this.reloadConfig();
   }
 
   setOuterGapsAndReload(left: string | number, right: string | number, workspace: string | number) {
-    const leftGap = `[{ monitor.${parseInt(String(workspace), 10) < 10 ? 'main' : 'secondary'} = ${left} }, 0]`;
-    const rightGap = `[{ monitor.${parseInt(String(workspace), 10) < 10 ? 'main' : 'secondary'} = ${right} }, 0]`;
-    replaceTomlValue(CONFIG_FILE_PATH, 'outer.left', leftGap);
-    replaceTomlValue(CONFIG_FILE_PATH, 'outer.right', rightGap);
+    const monitorSide = parseInt(String(workspace), 10) < 10 ? 'main' : 'secondary';
+    const leftGap = `[{ monitor.${monitorSide} = ${left} }, 0]`;
+    const rightGap = `[{ monitor.${monitorSide} = ${right} }, 0]`;
+    replaceTomlValues(CONFIG_FILE_PATH, [
+      { key: 'outer.left', value: leftGap },
+      { key: 'outer.right', value: rightGap },
+    ]);
     this.reloadConfig();
   }
 }

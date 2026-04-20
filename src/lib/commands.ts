@@ -15,14 +15,18 @@ export function runCommandSync(command: string, timeout = 10000): string | null 
     return null;
   }
 }
-
-export function replaceTomlValue(filePath: string, keyName: string, newValue: string | number) {
+export function replaceTomlValues(
+  filePath: string,
+  entries: { key: string; value: string | number }[]
+): void {
   try {
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    const regex = new RegExp(`${keyName}\\s*=.*`, 'g');
-    const updatedContent = fileContent.replace(regex, `${keyName} = ${newValue}`);
-    fs.writeFileSync(filePath, updatedContent, 'utf8');
-    logger.info(`Successfully updated ${keyName} to ${newValue}`);
+    let fileContent = fs.readFileSync(filePath, 'utf8');
+    for (const { key, value } of entries) {
+      const regex = new RegExp(`${key}\\s*=.*`, 'g');
+      fileContent = fileContent.replace(regex, `${key} = ${value}`);
+    }
+    fs.writeFileSync(filePath, fileContent, 'utf8');
+    logger.info(`Successfully updated ${entries.map(e => e.key).join(', ')}`);
   } catch (error) {
     logger.error(`Error updating file: ${(error as Error).message}`);
   }
