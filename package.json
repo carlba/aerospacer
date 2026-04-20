@@ -1,6 +1,6 @@
 {
-  "name": "typescript-template",
-  "description": "A short project description",
+  "name": "aerospacer",
+  "description": "A TypeScript CLI for aerospace utilities",
   "version": "0.0.1",
   "private": true,
   "license": "UNLICENSED",
@@ -9,13 +9,13 @@
     "aerospacer": "dist/aerospacer.js"
   },
   "author": "carlba",
-  "homepage": "https://github.com/carlba/typescript-template",
+  "homepage": "https://github.com/carlba/aerospacer",
   "bugs": {
-    "url": "https://github.com/carlba/typescript-template"
+    "url": "https://github.com/carlba/aerospacer/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:carlba/typescript-template"
+    "url": "git+https://github.com/carlba/aerospacer.git"
   },
   "scripts": {
     "build": "tsc",
