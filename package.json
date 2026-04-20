@@ -5,6 +5,9 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "bin": {
+    "aerospacer": "dist/aerospacer.js"
+  },
   "author": "carlba",
   "homepage": "https://github.com/carlba/typescript-template",
   "bugs": {
@@ -16,8 +19,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "start:dev": "nodemon src/index.ts",
+    "prepare": "npm run build",
+    "start": "node dist/aerospacer.js",
+    "start:dev": "nodemon src/aerospacer.ts",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",

@@ -1,86 +1,40 @@
-# typescript-template
+# aerospacer
 
-A template for a Typescript repository
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Version](https://img.shields.io/badge/version-0.0.1-blue)
+![License](https://img.shields.io/badge/license-UNLICENSED-lightgrey)
 
-## ESLint Setup
+## Features
 
-```javascript
-module.exports = {
-  env: {
-    es2022: true,
-    node: true,
-  },
-  overrides: [
-    {
-      files: ['**/*.js'],
-      extends: ['eslint:recommended'],
-      // https://eslint.org/docs/v8.x/use/configure/language-options#specifying-parser-options
-      parserOptions: {
-        ecmaVersion: '2022',
-      },
-    },
-    {
-      files: ['src**/*.ts'],
-      extends: [
-        'eslint:recommended',
-        'plugin:@typescript-eslint/recommended-type-checked',
-        'plugin:@typescript-eslint/stylistic-type-checked',
-      ],
-      plugins: ['@typescript-eslint'],
-      parser: '@typescript-eslint/parser',
-      parserOptions: {
-        project: true,
-      },
-    },
-  ],
-};
+- Manage AeroSpace window layouts and workspace gaps via a CLI.
+- Toggle concentrate mode and move the terminal between workspaces.
+- Adjust `.aerospace.toml` values and reload AeroSpace automatically.
+
+## Installation
+
+```bash
+npm install
+npm run build
+# For local testing
+npm link
 ```
 
-The newest version of ESLint is using the new `flatconfig` format. Even though it looks cool sadly
+## Usage
 
-the adaptation of it in the community has not yet reached to the point where it makes sense to start
+- Run the CLI: `aerospacer <command>`
+- Common commands:
+	- `reload` — restart AeroSpace and adjust windows
+	- `toggle-terminal` — move terminal to active workspace
+	- `concentrate-mode` — toggle concentrate layout
 
-using it. That is why this repo uses the `8.57.0` version which still defaults to the old config
+See the CLI entry: [src/aerospacer.ts](src/aerospacer.ts)
+See implementation: [src/lib](src/lib)
 
-file format. It has some consequences.
+## Contributing
 
-1. The file has to be in CommonJS format since version `8.57.0` doesn't support anything else
-2. The support both JS and Typescript by using the overrides property.
-3. Note that the `module.exports.overrides[0].parserOptions` needs to have a higher ECMA version
+- Run tests: `npm test`
+- Lint: `npm run lint`
+- Open a pull request and describe your change.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-   specified as the default is `ES5`. For the Typescript configuration this is not needed as it
-
-   reads the settings from the `tsconfig` when `module.exports.overrides[1].parserOptions.project`
-
-   is set to `true`
-
-## Why is nodemon Used Over tsx watch
-
-Because `tsx watch` does not support watching .env file.
-
-## Migration from Jest to Vitest
-
-1. Uninstall Jest
-
-   ```bash
-   npm uninstall jest @types/jest
-   npm install -D vitest
-   ```
-
-1. Configure Vitest
-
-   [vitest config in the repo](vitest.config.ts)
-
-1. Update package.json with test commands referencing `vitest` rather than `jest`
-
-   ```json
-   {
-     "scripts": {
-       "test": "vitest run",
-       "test:watch": "vitest watch",
-       "test:coverage": "vitest run --coverage"
-     }
-   }
-   ```
-
-1. And ensure to add `import { describe, it, expect } from 'vitest';` at the top of test cases.
+License: See [LICENSE](LICENSE)
