@@ -23,12 +23,11 @@ npm link
 
 - Run the CLI: `aerospacer <command>`
 - Common commands:
-	- `reload` — restart AeroSpace and adjust windows
-	- `toggle-terminal` — move terminal to active workspace
-	- `concentrate-mode` — toggle concentrate layout
+  - `reload` — restart AeroSpace and adjust windows
+  - `toggle-terminal` — move terminal to active workspace
+  - `concentrate-mode` — toggle concentrate layout
 
-See the CLI entry: [src/aerospacer.ts](src/aerospacer.ts)
-See implementation: [src/lib](src/lib)
+See the CLI entry: [src/aerospacer.ts](src/aerospacer.ts) See implementation: [src/lib](src/lib)
 
 ## Contributing
 
