@@ -7,11 +7,10 @@ export const LOGLEVEL = {
 } as const;
 export type LogLevel = (typeof LOGLEVEL)[keyof typeof LOGLEVEL];
 
-export const LAYOUT_MODE = {
-  CONCENTRATE: 'CONCENTRATE' as const,
-  FALSE: false as const,
-} as const;
-export type LayoutMode = (typeof LAYOUT_MODE)[keyof typeof LAYOUT_MODE];
+export enum LayoutMode {
+  CONCENTRATE = 'CONCENTRATE',
+  FALSE = 'FALSE',
+}
 
 export const CONFIG_FILE_PATH = path.join(process.env.HOME || '', '.aerospace.toml');
 export const RUN_FILE_PATH = '/tmp/aerospacer.run';

@@ -22,8 +22,7 @@ npm run format         # Format with Prettier
 ### Clean Code Principles
 
 - **Meaningful names**: Every variable, function, parameter, and class name should clearly express
-  its intent. Never use single-letter variables (except loop indices like `i` in trivial for-loops
-  where no semantic name exists).
+  its intent. Never use single-letter variables except in regular for loops where i and k is OK.
 - **Functions do one thing**: Keep functions small and focused on a single responsibility. If a
   function needs a comment to explain what it does, rename it or split it.
 - **Avoid magic numbers/strings**: Extract constants with descriptive names instead of using bare
@@ -43,7 +42,7 @@ commands in order before considering the task done:
 
 1. `npm run lint` — check for linting violations; fix any errors found
 2. `npm run build` — verify the project compiles successfully
-3. Fix inconsistances between package.json config and project metadata.
+3. `npm run format` — all the source is properly formatted
 
 Do not mark a task as complete or stop until both commands pass without errors. If either command
 fails, fix the issue and re-run until both pass.
@@ -72,7 +71,11 @@ fails, fix the issue and re-run until both pass.
 | Types                  | PascalCase                      | `ApiResponse`, `RequestOptions`         |
 | Files                  | kebab-case                      | `user-service.ts`, `parse-response.ts`  |
 
-## Best Practices
+## Conventions
+
+- All source code lives in `src/`.
+- Entry point is `src/index.ts`.
+- Prefer early returns to reduce nesting.
 
 ### HTTP Requests
 
@@ -130,9 +133,3 @@ Should use [Commander](https://www.npmjs.com/package/commander)
   `it('returns the user when the ID is valid', ...)`.
 - Prefer `vi.mock` for mocking external dependencies; avoid mocking internals.
 - Aim for meaningful coverage — test edge cases and error paths, not just the happy path.
-
-## Conventions
-
-- All source code lives in `src/`.
-- Entry point is `src/index.ts`.
-- Prefer early returns to reduce nesting.

@@ -1,15 +1,22 @@
+import { Command } from 'commander';
 import { aerospace } from './aerospace.js';
 import { logger } from './logger.js';
-import { displayResolution, LAYOUT_MODE, TERMINAL_WORKSPACE, TERMINAL } from './types.js';
-import type { LayoutMode, WorkspaceState, WindowInfo } from './types.js';
+import { displayResolution, LayoutMode, TERMINAL_WORKSPACE, TERMINAL } from './types.js';
+import type { WorkspaceState, WindowInfo } from './types.js';
+
+const DESIRED_WINDOW_WIDTH = 1280;
+const MIN_GAP = 64;
 
 // computeGapForWorkspace needs the `aerospace` instance and displayResolution
 export function computeGapForWorkspace(
   workspace: string | number,
   prefetchedWindows?: WindowInfo[]
 ): number {
-  const DESIRED_WINDOW_WIDTH = 1280;
-  const MIN_GAP = 64;
+  const localLogger = logger.child({
+    name: computeGapForWorkspace.name,
+    desired: DESIRED_WINDOW_WIDTH,
+  });
+
   const currentDisplay = aerospace.getCurrentDisplay()?.monitorName ?? 'Built-in Display';
   const monitorWidth = displayResolution[currentDisplay] ?? 2400;
 
@@ -30,8 +37,9 @@ export function computeGapForWorkspace(
   if (gap > maxGap) gap = maxGap;
   if (gap < MIN_GAP) gap = MIN_GAP;
 
-  logger.debug(
-    `computeGapForWorkspace workspace=${workspace} monitorWidth=${monitorWidth} windows=${count} gap=${gap} desired=${DESIRED_WINDOW_WIDTH}`
+  localLogger.debug(
+    { workspace, monitorWidth, windowsCount: windows.length, gap, desired: DESIRED_WINDOW_WIDTH },
+    'Computed Gap for Workspace'
   );
   return gap;
 }
@@ -41,23 +49,32 @@ export function setNewWorkspaceLayout(
   targetWorkspaceLayoutMode: LayoutMode,
   targetWorkspace: string | number
 ) {
+  const localLogger = logger.child({
+    name: setNewWorkspaceLayout.name,
+    previousWorkspaceLayoutMode,
+    targetWorkspaceLayoutMode,
+    targetWorkspace,
+  });
+
   switch (targetWorkspaceLayoutMode) {
     case previousWorkspaceLayoutMode:
-      logger.debug(`No action because the previous and target workspace layout mode is the same`);
+      localLogger.debug(`Target and Previous workspace layout same not switching`);
       break;
-    case LAYOUT_MODE.CONCENTRATE:
-      logger.debug(`Set ${targetWorkspaceLayoutMode}-mode`);
+    case LayoutMode.CONCENTRATE:
       {
+        localLogger.debug('Switching workspace');
         const gap = computeGapForWorkspace(targetWorkspace);
         aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
+        aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.CONCENTRATE);
       }
       break;
-    case LAYOUT_MODE.FALSE:
-      logger.debug(`Set ${targetWorkspaceLayoutMode}-mode`);
+    case LayoutMode.FALSE:
+      localLogger.debug('Switching workspace');
       aerospace.setOuterGapsAndReload(0, 0, targetWorkspace);
+      aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.FALSE);
       break;
     default:
-      logger.error(`Unknown layout mode: ${targetWorkspaceLayoutMode}`);
+      localLogger.error(`Unknown layout mode`);
   }
 }
 
@@ -68,46 +85,42 @@ export function handleWorkspaceChange(
   aerospace.aerospaceRun.previousWorkspace = Number(targetWorkspace);
   aerospace.persist();
 
+  logger.info('got here');
+
   const targetWorkspaceKey = String(targetWorkspace);
   const previousWorkspaceKey = String(previousWorkspace);
   const targetWorkspaceLayoutMode =
-    aerospace.aerospaceRun.workspaceState[targetWorkspaceKey]?.layoutMode ?? LAYOUT_MODE.FALSE;
+    aerospace.aerospaceRun.workspaceState[targetWorkspaceKey]?.layoutMode ?? LayoutMode.FALSE;
   const previousWorkspaceLayoutMode =
-    aerospace.aerospaceRun.workspaceState[previousWorkspaceKey]?.layoutMode ?? LAYOUT_MODE.FALSE;
-  logger.info(
-    `Target Workspace number: ${targetWorkspace} layout mode: ${targetWorkspaceLayoutMode} Previous Workspace number: ${previousWorkspace} layout mode: ${previousWorkspaceLayoutMode}`
-  );
+    aerospace.aerospaceRun.workspaceState[previousWorkspaceKey]?.layoutMode ?? LayoutMode.FALSE;
   setNewWorkspaceLayout(previousWorkspaceLayoutMode, targetWorkspaceLayoutMode, targetWorkspace);
 }
 
 export function handleConcentrateMode() {
   const previousWorkspaceKey = String(aerospace.aerospaceRun.previousWorkspace);
   const previousWorkspaceLayoutMode =
-    aerospace.aerospaceRun.workspaceState[previousWorkspaceKey]?.layoutMode ?? LAYOUT_MODE.FALSE;
+    aerospace.aerospaceRun.workspaceState[previousWorkspaceKey].layoutMode ?? LayoutMode.FALSE;
 
   const localLogger = logger.child({
-    context: handleConcentrateMode.name,
+    name: handleConcentrateMode.name,
     previousWorkspaceKey,
     previousWorkspaceLayoutMode,
   });
 
-  if (previousWorkspaceLayoutMode === LAYOUT_MODE.CONCENTRATE) {
-    localLogger.debug(`Set ${LAYOUT_MODE.FALSE}-mode`);
+  if (previousWorkspaceLayoutMode === LayoutMode.CONCENTRATE) {
+    localLogger.debug(`Set ${LayoutMode.FALSE}-mode`);
     aerospace.setOuterLeftRightGapsAndReload(0);
-    aerospace.setPreviousWorkspaceLayoutMode(LAYOUT_MODE.FALSE);
-  } else if (previousWorkspaceLayoutMode === LAYOUT_MODE.FALSE) {
-    localLogger.debug(`Set ${LAYOUT_MODE.CONCENTRATE}-mode`);
+    aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.FALSE);
+  } else if (previousWorkspaceLayoutMode === LayoutMode.FALSE) {
     const targetWorkspace = aerospace.aerospaceRun.previousWorkspace;
     const gap = computeGapForWorkspace(targetWorkspace);
     aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
-    aerospace.setPreviousWorkspaceLayoutMode(LAYOUT_MODE.CONCENTRATE);
+    aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.CONCENTRATE);
   }
 }
 
 export function handleToggleTerminal() {
-  let localLogger = logger.child({
-    context: handleConcentrateMode.name,
-  });
+  let localLogger = logger.child({ name: handleToggleTerminal.name });
   localLogger.debug('Handling');
   const terminalWindow = aerospace.findWindow(TERMINAL as string);
 
@@ -116,7 +129,7 @@ export function handleToggleTerminal() {
     return;
   }
 
-  localLogger = localLogger.child({ terminalWindow });
+  localLogger = localLogger.child({ appName: terminalWindow.appName });
 
   if (String(terminalWindow.workspace) === TERMINAL_WORKSPACE) {
     const activeWorkspaceName = aerospace.getActiveWorkspaceName();
@@ -140,7 +153,8 @@ export function handleToggleTerminal() {
 }
 
 export function handleOnFocusChanged() {
-  let localLogger = logger.child({ context: 'handleOnFocusChanged' });
+  let localLogger = logger.child({ name: 'handleOnFocusChanged' });
+
   const activeWorkspaceName = aerospace.getActiveWorkspaceName();
   if (activeWorkspaceName === null) {
     logger.error('Failed to determine active workspace');
@@ -150,14 +164,18 @@ export function handleOnFocusChanged() {
   const workspaceKey = String(activeWorkspaceName);
   const workspaceState: WorkspaceState | undefined =
     aerospace.aerospaceRun.workspaceState[workspaceKey];
-  const currentWorkspaceMode = workspaceState?.layoutMode ?? LAYOUT_MODE.FALSE;
+  const currentWorkspaceMode = workspaceState?.layoutMode ?? LayoutMode.FALSE;
 
   localLogger = localLogger.child({ workspaceKey, workspaceState, currentWorkspaceMode });
 
-  if (currentWorkspaceMode === LAYOUT_MODE.CONCENTRATE) {
+  if (currentWorkspaceMode === LayoutMode.CONCENTRATE) {
     const windowsInCurrentWorkspace = (aerospace.listWindows(activeWorkspaceName) ?? []).filter(
       win => win.windowLayout !== 'floating'
     );
+
+    logger.info({
+      windows: windowsInCurrentWorkspace,
+    });
 
     const currentWindowCount = windowsInCurrentWorkspace.length;
 
@@ -173,42 +191,51 @@ export function handleOnFocusChanged() {
       localLogger.debug({ gap }, 'Setting new gap');
       aerospace.setOuterGapsAndReload(gap, gap, activeWorkspaceName);
       aerospace.aerospaceRun.workspaceState[workspaceKey] = {
-        layoutMode: LAYOUT_MODE.CONCENTRATE,
+        layoutMode: LayoutMode.CONCENTRATE,
         windowCount: currentWindowCount,
       };
       aerospace.persist();
     }
   }
-}
-
-export function handleArgs(args: string[]) {
-  logger.info(`Processing args ${args.length === 0 ? 'empty' : args}`);
-
-  if (args[0] === 'on-workspace-change') {
-    const targetWorkspace = process.env.AEROSPACE_FOCUSED_WORKSPACE;
-    const previousWorkspace = process.env.AEROSPACE_PREV_WORKSPACE;
-    handleWorkspaceChange(
-      parseInt(String(targetWorkspace), 10),
-      parseInt(String(previousWorkspace), 10)
-    );
-  }
-
-  if (args[0] === 'on-focus-changed') {
-    handleOnFocusChanged();
-  }
-
-  if (args[0] === 'toggle-terminal') {
-    handleToggleTerminal();
-  }
-
-  if (args[0] === 'concentrate-mode') {
-    logger.info('concentrate mode');
-    handleConcentrateMode();
-  }
+  localLogger.debug('No action required');
 }
 
 export function main() {
-  logger.info(`Aerospace application started`);
-  const args = process.argv.slice(2);
-  handleArgs(args);
+  const mainLogger = logger.child({ name: 'main' });
+  mainLogger.info({ args: process.argv.slice(2) }, `Aerospace application started`);
+
+  const program = new Command();
+  program.name('aerospacer').description('Aerospace utilities CLI');
+
+  program
+    .command('on-workspace-change')
+    .description('Handle a workspace change event')
+    .option('--target <number>', 'Target workspace number')
+    .option('--previous <number>', 'Previous workspace number')
+    .action(options => {
+      handleWorkspaceChange(
+        Number(options.target ?? process.env.AEROSPACE_FOCUSED_WORKSPACE),
+        Number(options.previous ?? process.env.AEROSPACE_PREV_WORKSPACE)
+      );
+    });
+
+  program
+    .command('on-focus-changed')
+    .description('Handle an on-focus-changed event')
+    .action(handleOnFocusChanged);
+
+  program
+    .command('toggle-terminal')
+    .description('Toggle the terminal workspace location')
+    .action(handleToggleTerminal);
+
+  program
+    .command('concentrate-mode')
+    .description('Toggle concentrate mode')
+    .action(() => {
+      logger.info('concentrate mode');
+      handleConcentrateMode();
+    });
+
+  program.parse(process.argv);
 }

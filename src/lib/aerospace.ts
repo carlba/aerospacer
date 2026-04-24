@@ -1,13 +1,12 @@
 import * as fs from 'fs';
 import { runCommandSync, replaceTomlValues } from './commands.js';
-import { LAYOUT_MODE, CONFIG_FILE_PATH, RUN_FILE_PATH } from './types.js';
+import { LayoutMode, CONFIG_FILE_PATH, RUN_FILE_PATH } from './types.js';
 import type {
   WindowInfo,
   WorkspaceInfo,
   RawWindowJson,
   RawWorkspaceJson,
   AerospaceRun,
-  LayoutMode,
   WorkspaceState,
   DisplayInfo,
 } from './types.js';
@@ -28,7 +27,7 @@ export class AeroSpace {
     return Object.fromEntries(
       Array.from({ length: 10 }, (_, i) => [
         String(i + 1),
-        { layoutMode: LAYOUT_MODE.FALSE, windowCount: 0 },
+        { layoutMode: LayoutMode.FALSE, windowCount: 0 },
       ])
     ) as Record<string, WorkspaceState>;
   }
@@ -43,9 +42,10 @@ export class AeroSpace {
   }
 
   setPreviousWorkspaceLayoutMode(layoutMode: LayoutMode) {
-    const layoutModes = Object.values(LAYOUT_MODE) as LayoutMode[];
+    const layoutModes = Object.values(LayoutMode) as LayoutMode[];
+
     if (!layoutModes.includes(layoutMode)) {
-      logger.debug(`layoutMode: ${layoutMode} must be in ${Object.values(LAYOUT_MODE)}`);
+      logger.debug(`layoutMode: ${layoutMode} must be in ${Object.values(LayoutMode)}`);
       return;
     }
 
@@ -147,25 +147,25 @@ export class AeroSpace {
 
     try {
       const parsed = JSON.parse(output) as RawWindowJson[];
-      const windows: WindowInfo[] = parsed.map((w: RawWindowJson) => ({
-        windowId: w['window-id'],
-        windowTitle: w['window-title'],
-        windowIsFullscreen: w['window-is-fullscreen'],
-        windowLayout: w['window-layout'],
-        windowParentContainerLayout: w['window-parent-container-layout'],
-        appBundleId: w['app-bundle-id'],
-        appName: w['app-name'],
-        appPid: w['app-pid'],
-        appExecPath: w['app-exec-path'],
-        appBundlePath: w['app-bundle-path'],
-        workspace: w['workspace'] ?? 0,
-        workspaceIsFocused: w['workspace-is-focused'],
-        workspaceIsVisible: w['workspace-is-visible'],
-        workspaceRootContainerLayout: w['workspace-root-container-layout'],
-        monitorId: w['monitor-id'],
-        monitorAppkitNsscreenScreensId: w['monitor-appkit-nsscreen-screens-id'],
-        monitorName: w['monitor-name'],
-        monitorIsMain: w['monitor-is-main'],
+      const windows: WindowInfo[] = parsed.map((window: RawWindowJson) => ({
+        windowId: window['window-id'],
+        windowTitle: window['window-title'],
+        windowIsFullscreen: window['window-is-fullscreen'],
+        windowLayout: window['window-layout'],
+        windowParentContainerLayout: window['window-parent-container-layout'],
+        appBundleId: window['app-bundle-id'],
+        appName: window['app-name'],
+        appPid: window['app-pid'],
+        appExecPath: window['app-exec-path'],
+        appBundlePath: window['app-bundle-path'],
+        workspace: window['workspace'] ?? 0,
+        workspaceIsFocused: window['workspace-is-focused'],
+        workspaceIsVisible: window['workspace-is-visible'],
+        workspaceRootContainerLayout: window['workspace-root-container-layout'],
+        monitorId: window['monitor-id'],
+        monitorAppkitNsscreenScreensId: window['monitor-appkit-nsscreen-screens-id'],
+        monitorName: window['monitor-name'],
+        monitorIsMain: window['monitor-is-main'],
       }));
 
       return windows;
@@ -239,7 +239,6 @@ export class AeroSpace {
       );
     }
 
-    logger.info(`FoundWindow! ${JSON.stringify(foundWindows[0])}`);
     return foundWindows[0];
   }
 

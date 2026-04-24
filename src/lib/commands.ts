@@ -26,7 +26,6 @@ export function replaceTomlValues(
       fileContent = fileContent.replace(regex, `${key} = ${value}`);
     }
     fs.writeFileSync(filePath, fileContent, 'utf8');
-    logger.info(`Successfully updated ${entries.map(e => e.key).join(', ')}`);
   } catch (error) {
     logger.error(`Error updating file: ${(error as Error).message}`);
   }

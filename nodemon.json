@@ -1,7 +1,0 @@
-{
-  "execMap": {
-    "ts": "tsx"
-  },
-  "quiet": true,
-  "watch": ["src/**/*", ".env"]
-}
