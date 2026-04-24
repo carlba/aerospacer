@@ -4,18 +4,32 @@ import { LayoutMode } from './types.js';
 const setOuterGapsAndReload = vi.fn();
 const getCurrentDisplay = vi.fn();
 const listWindows = vi.fn();
+const setPreviousWorkspaceLayoutMode = vi.fn();
+
+const loggerDebug = vi.fn();
+const loggerError = vi.fn();
+const loggerChild = vi.fn(() => ({
+  debug: loggerDebug,
+  error: loggerError,
+  child: loggerChild,
+}));
 
 vi.mock('./aerospace.js', () => ({
   aerospace: {
+    aerospaceRun: {
+      screens: [{ name: 'Built-in Display', x: 0, y: 0, width: 2328, height: 1600 }],
+    },
     setOuterGapsAndReload,
     getCurrentDisplay,
     listWindows,
+    setPreviousWorkspaceLayoutMode,
   },
 }));
 vi.mock('./logger.js', () => ({
   logger: {
-    debug: vi.fn(),
-    error: vi.fn(),
+    debug: loggerDebug,
+    error: loggerError,
+    child: loggerChild,
   },
 }));
 

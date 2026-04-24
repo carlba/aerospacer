@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { aerospace } from './aerospace.js';
 import { logger } from './logger.js';
-import { displayResolution, LayoutMode, TERMINAL_WORKSPACE, TERMINAL } from './types.js';
+import { LayoutMode, TERMINAL_WORKSPACE, TERMINAL } from './types.js';
 import type { WorkspaceState, WindowInfo } from './types.js';
 
 const DESIRED_WINDOW_WIDTH = 1280;
@@ -18,7 +18,8 @@ export function computeGapForWorkspace(
   });
 
   const currentDisplay = aerospace.getCurrentDisplay()?.monitorName ?? 'Built-in Display';
-  const monitorWidth = displayResolution[currentDisplay] ?? 2400;
+  const monitorWidth =
+    aerospace.aerospaceRun.screens.find(screen => screen.name === currentDisplay)?.width ?? 2400;
 
   const allWindows =
     prefetchedWindows ?? ((aerospace.listWindows(workspace) ?? []) as WindowInfo[]);
@@ -200,6 +201,10 @@ export function handleOnFocusChanged() {
   localLogger.debug('No action required');
 }
 
+export function handleRefreshResolutionInState() {
+  aerospace.persistResolutionOfScreens();
+}
+
 export function main() {
   const mainLogger = logger.child({ name: 'main' });
   mainLogger.info({ args: process.argv.slice(2) }, `Aerospace application started`);
@@ -235,6 +240,14 @@ export function main() {
     .action(() => {
       logger.info('concentrate mode');
       handleConcentrateMode();
+    });
+
+  program
+    .command('refresh-screens')
+    .description('Refersh resolution in state')
+    .action(() => {
+      logger.info('refresh resolution');
+      aerospace.persistResolutionOfScreens();
     });
 
   program.parse(process.argv);

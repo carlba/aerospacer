@@ -18,11 +18,6 @@ export const LOG_FILE_PATH = '/tmp/aerospacer.log';
 export const TERMINAL_WORKSPACE = '8';
 export const TERMINAL = 'WezTerm';
 
-export const displayResolution: Record<string, number> = {
-  'Built-in Display': 2328,
-  CB282K: 3832,
-};
-
 export interface DisplayInfo {
   monitorId: number | string;
   monitorAppkitNsscreenScreensId: string;
@@ -98,7 +93,16 @@ export interface WorkspaceState {
   windowCount: number;
 }
 
+export interface Screen {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
+}
+
 export interface AerospaceRun {
   previousWorkspace: number;
   workspaceState: Record<string, WorkspaceState>;
+  screens: Screen[];
 }

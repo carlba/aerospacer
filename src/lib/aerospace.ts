@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { z } from 'zod';
 import { runCommandSync, replaceTomlValues } from './commands.js';
 import { LayoutMode, CONFIG_FILE_PATH, RUN_FILE_PATH } from './types.js';
 import type {
@@ -11,6 +12,28 @@ import type {
   DisplayInfo,
 } from './types.js';
 import { logger } from './logger.js';
+
+const screenSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  name: z.string(),
+});
+
+const workspaceStateSchema = z.record(
+  z.string(),
+  z.object({
+    layoutMode: z.nativeEnum(LayoutMode),
+    windowCount: z.number().int().nonnegative(),
+  })
+);
+
+const aerospaceRunSchema = z.object({
+  previousWorkspace: z.number().int().nonnegative().default(0),
+  workspaceState: workspaceStateSchema,
+  screens: z.array(screenSchema),
+});
 
 export class AeroSpace {
   aerospaceRun!: AerospaceRun;
@@ -33,9 +56,17 @@ export class AeroSpace {
   }
 
   initalize() {
+    const screens = this.getScreensFromSwift();
+
+    if (!screens) {
+      logger.error('Failed to retrieve resolution of screens');
+      throw new Error('Failed to retrieve resolution of screens');
+    }
+
     this.aerospaceRun = {
       previousWorkspace: 0,
       workspaceState: this.createDefaultWorkspaceState(),
+      screens,
     };
 
     this.persist();
@@ -61,51 +92,51 @@ export class AeroSpace {
     this.persist();
   }
 
+  persistResolutionOfScreens() {
+    const screens = this.getScreensFromSwift();
+
+    if (!screens) {
+      logger.error('Failed to retrieve resolution of screens');
+      throw new Error('Failed to retrieve resolution of screens');
+    }
+
+    logger.info({ screens }, 'Logical resolution of current screen');
+
+    this.aerospaceRun.screens = screens;
+
+    this.persist();
+  }
+
   persist() {
     fs.writeFileSync(RUN_FILE_PATH, JSON.stringify(this.aerospaceRun));
   }
 
+  private parseRuntimeState(raw: unknown): AerospaceRun {
+    const parseResult = aerospaceRunSchema.safeParse(raw);
+    if (!parseResult.success) {
+      throw new Error(`Invalid Aerospace runtime format: ${parseResult.error.message}`);
+    }
+
+    return {
+      previousWorkspace: parseResult.data.previousWorkspace,
+      workspaceState: {
+        ...this.createDefaultWorkspaceState(),
+        ...parseResult.data.workspaceState,
+      },
+      screens: parseResult.data.screens,
+    };
+  }
+
   load() {
     try {
-      const raw = JSON.parse(fs.readFileSync(RUN_FILE_PATH, 'utf8')) as Record<string, unknown>;
+      const raw = JSON.parse(fs.readFileSync(RUN_FILE_PATH, 'utf8'));
 
-      if (raw && typeof raw === 'object') {
-        const previousWorkspace = Number(raw.previousWorkspace ?? 0);
-
-        if (
-          'workspaceState' in raw &&
-          raw.workspaceState &&
-          typeof raw.workspaceState === 'object'
-        ) {
-          this.aerospaceRun = {
-            previousWorkspace,
-            workspaceState: {
-              ...this.createDefaultWorkspaceState(),
-              ...(raw.workspaceState as Record<string, WorkspaceState>),
-            },
-          };
-          return;
-        }
-
-        if ('layoutMode' in raw && raw.layoutMode && typeof raw.layoutMode === 'object') {
-          const layoutMode = raw.layoutMode as Record<string, LayoutMode>;
-          this.aerospaceRun = {
-            previousWorkspace,
-            workspaceState: {
-              ...this.createDefaultWorkspaceState(),
-              ...Object.fromEntries(
-                Object.entries(layoutMode).map(([workspace, mode]) => [
-                  workspace,
-                  { layoutMode: mode as LayoutMode, windowCount: 0 },
-                ])
-              ),
-            } as Record<string, WorkspaceState>,
-          };
-          return;
-        }
+      if (!raw || typeof raw !== 'object') {
+        throw new Error('Unsupported Aerospace runtime format');
       }
 
-      throw new Error('Unsupported Aerospace runtime format');
+      this.aerospaceRun = this.parseRuntimeState(raw);
+      return;
     } catch (error) {
       logger.error(`Failed to load Aerospace runtime ${RUN_FILE_PATH} ${(error as Error).message}`);
       this.initalize();
@@ -367,6 +398,60 @@ export class AeroSpace {
       { key: 'outer.right', value: rightGap },
     ]);
     this.reloadConfig();
+  }
+
+  private getScreensFromSwift():
+    | { x: number; y: number; width: number; height: number; name: string }[]
+    | null {
+    const script = `
+swift - <<'SWIFT'
+import AppKit
+import Foundation
+let screens = NSScreen.screens
+var results: [[String: Any]] = []
+for screen in screens {
+    let frame = screen.frame
+    let name = screen.localizedName
+    results.append([
+        "x": Int(frame.origin.x),
+        "y": Int(frame.origin.y),
+        "width": Int(frame.width),
+        "height": Int(frame.height),
+        "name": name
+    ])
+}
+let data = try JSONSerialization.data(withJSONObject: results, options: [])
+print(String(data: data, encoding: .utf8)!)
+SWIFT`;
+
+    const output = runCommandSync(script);
+    if (!output) {
+      logger.error('Failed to get screen information from Swift');
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(output) as ({
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        name: string;
+      } | null)[];
+
+      return parsed.filter(
+        (screen): screen is { x: number; y: number; width: number; height: number; name: string } =>
+          screen !== null &&
+          typeof screen.x === 'number' &&
+          typeof screen.y === 'number' &&
+          typeof screen.width === 'number' &&
+          typeof screen.height === 'number' &&
+          typeof screen.name === 'string'
+      );
+    } catch (error) {
+      logger.error(`Failed to parse screen information: ${(error as Error).message}`);
+      return null;
+    }
   }
 }
 
