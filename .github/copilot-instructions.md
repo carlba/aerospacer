@@ -42,7 +42,6 @@ commands in order before considering the task done:
 
 1. `npm run lint` — check for linting violations; fix any errors found
 2. `npm run build` — verify the project compiles successfully
-3. `npm run format` — all the source is properly formatted
 
 Do not mark a task as complete or stop until both commands pass without errors. If either command
 fails, fix the issue and re-run until both pass.
@@ -59,6 +58,7 @@ fails, fix the issue and re-run until both pass.
 - Use `const` by default; only use `let` when reassignment is necessary.
 - Prefer explicit return types on exported functions.
 - Use ESM imports (`import`/`export`) — this project uses `"type": "module"`.
+- Prefer named exports over default exports.
 
 ### Naming Conventions
 
@@ -110,7 +110,11 @@ async function fetchUser(userId: string): Promise<User> {
 
 ### CLI tools
 
-Should use [Commander](https://www.npmjs.com/package/commander)
+- Should use [Commander](https://www.npmjs.com/package/commander)
+- Should have a package entry point matching the project name and pointing to`dist/cli.js`. The
+  `cli.js` file should be responsible of running constructing the CLI and running it.
+- To ensure that the package is possible to install using `npm link --local` a prepare package
+  script that executes `npm run build` is required.
 
 ### Error Handling
 
@@ -121,8 +125,9 @@ Should use [Commander](https://www.npmjs.com/package/commander)
 
 ### Environment Variables
 
-- In development, `tsx` automatically loads `.env` files. In production, environment variables are
-  injected by the platform. No `dotenv` dependency or extra flags needed.
+- When running Node directly, prefer Node’s built-in `--env-file` parameter instead of a third-party
+  loader.
+- In production, environment variables should be injected by the platform or deployment environment.
 - Access `process.env` only through a dedicated, validated config module — never scattered inline.
 - Fail fast with a clear error if a required environment variable is missing at startup.
 

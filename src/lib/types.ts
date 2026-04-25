@@ -1,5 +1,3 @@
-import path from 'path';
-
 export const LOGLEVEL = {
   ERROR: 'ERROR',
   INFO: 'INFO',
@@ -12,9 +10,6 @@ export enum LayoutMode {
   FALSE = 'FALSE',
 }
 
-export const CONFIG_FILE_PATH = path.join(process.env.HOME || '', '.aerospace.toml');
-export const RUN_FILE_PATH = '/tmp/aerospacer.run';
-export const LOG_FILE_PATH = '/tmp/aerospacer.log';
 export const TERMINAL_WORKSPACE = '8';
 export const TERMINAL = 'WezTerm';
 
@@ -103,6 +98,6 @@ export interface Screen {
 
 export interface AerospaceRun {
   previousWorkspace: number;
-  workspaceState: Record<string, WorkspaceState>;
+  workspaceState: Record<string, WorkspaceState | undefined>;
   screens: Screen[];
 }

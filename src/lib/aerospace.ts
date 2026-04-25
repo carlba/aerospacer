@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { z } from 'zod';
 import { runCommandSync, replaceTomlValues } from './commands.js';
-import { LayoutMode, CONFIG_FILE_PATH, RUN_FILE_PATH } from './types.js';
+import { LayoutMode } from './types.js';
 import type {
   WindowInfo,
   WorkspaceInfo,
@@ -11,7 +11,12 @@ import type {
   WorkspaceState,
   DisplayInfo,
 } from './types.js';
-import { logger } from './logger.js';
+import { LOGGER, config } from '../registry.js';
+import path from 'path';
+
+export const CONFIG_FILE_PATH = path.join(config.HOME, '.aerospace.toml');
+
+const logger = LOGGER.child({ module: 'aerospace' });
 
 const screenSchema = z.object({
   x: z.number(),
@@ -24,7 +29,7 @@ const screenSchema = z.object({
 const workspaceStateSchema = z.record(
   z.string(),
   z.object({
-    layoutMode: z.nativeEnum(LayoutMode),
+    layoutMode: z.enum(LayoutMode),
     windowCount: z.number().int().nonnegative(),
   })
 );
@@ -39,7 +44,7 @@ export class AeroSpace {
   aerospaceRun!: AerospaceRun;
 
   constructor() {
-    if (fs.existsSync(RUN_FILE_PATH)) {
+    if (fs.existsSync(config.RUN_FILE_PATH)) {
       this.load();
     } else {
       this.initialize();
@@ -52,14 +57,17 @@ export class AeroSpace {
         String(i + 1),
         { layoutMode: LayoutMode.FALSE, windowCount: 0 },
       ])
-    ) as Record<string, WorkspaceState>;
+    );
   }
 
   initialize() {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.initialize.name}`,
+    });
     const screens = this.getScreensFromSwift();
 
     if (!screens) {
-      logger.error('Failed to retrieve resolution of screens');
+      localLogger.error('Failed to retrieve resolution of screens');
       throw new Error('Failed to retrieve resolution of screens');
     }
 
@@ -73,18 +81,29 @@ export class AeroSpace {
   }
 
   setPreviousWorkspaceLayoutMode(layoutMode: LayoutMode) {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.setPreviousWorkspaceLayoutMode.name}`,
+    });
+
     const layoutModes = Object.values(LayoutMode) as LayoutMode[];
 
     if (!layoutModes.includes(layoutMode)) {
-      logger.debug(`layoutMode: ${layoutMode} must be in ${Object.values(LayoutMode)}`);
+      localLogger.debug(
+        `layoutMode: ${layoutMode} must be in ${Object.values(LayoutMode).join(', ')}`
+      );
       return;
     }
 
     const workspaceKey = String(this.aerospaceRun.previousWorkspace);
+    const existingWorkspaceState = this.aerospaceRun.workspaceState[workspaceKey] ?? {
+      layoutMode: LayoutMode.FALSE,
+      windowCount: 0,
+    };
+
     this.aerospaceRun.workspaceState = {
       ...this.aerospaceRun.workspaceState,
       [workspaceKey]: {
-        ...this.aerospaceRun.workspaceState[workspaceKey],
+        ...existingWorkspaceState,
         layoutMode,
       },
     };
@@ -93,6 +112,10 @@ export class AeroSpace {
   }
 
   persistResolutionOfScreens() {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.persistResolutionOfScreens.name}`,
+    });
+
     const screens = this.getScreensFromSwift();
 
     if (!screens) {
@@ -100,7 +123,7 @@ export class AeroSpace {
       throw new Error('Failed to retrieve resolution of screens');
     }
 
-    logger.info({ screens }, 'Logical resolution of current screen');
+    localLogger.info({ screens }, 'Logical resolution of current screen');
 
     this.aerospaceRun.screens = screens;
 
@@ -108,7 +131,7 @@ export class AeroSpace {
   }
 
   persist() {
-    fs.writeFileSync(RUN_FILE_PATH, JSON.stringify(this.aerospaceRun));
+    fs.writeFileSync(config.RUN_FILE_PATH, JSON.stringify(this.aerospaceRun));
   }
 
   private parseRuntimeState(raw: unknown): AerospaceRun {
@@ -128,8 +151,12 @@ export class AeroSpace {
   }
 
   load() {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.load.name}`,
+    });
+
     try {
-      const raw = JSON.parse(fs.readFileSync(RUN_FILE_PATH, 'utf8'));
+      const raw = JSON.parse(fs.readFileSync(config.RUN_FILE_PATH, 'utf8')) as unknown;
 
       if (!raw || typeof raw !== 'object') {
         throw new Error('Unsupported Aerospace runtime format');
@@ -138,12 +165,17 @@ export class AeroSpace {
       this.aerospaceRun = this.parseRuntimeState(raw);
       return;
     } catch (error) {
-      logger.error(`Failed to load Aerospace runtime ${RUN_FILE_PATH} ${(error as Error).message}`);
+      localLogger.error(
+        `Failed to load Aerospace runtime ${config.RUN_FILE_PATH} ${(error as Error).message}`
+      );
       this.initialize();
     }
   }
 
   listWindows(workspace?: string | number, focused = false): WindowInfo[] | null {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.listWindows.name}`,
+    });
     const format = [
       '%{window-id}',
       '%{window-title}',
@@ -167,12 +199,12 @@ export class AeroSpace {
 
     const aerospaceCommand = focused
       ? `aerospace list-windows --focused --json --format '${format}'`
-      : `aerospace list-windows --json --format '${format}' ${!workspace ? '--all' : `--workspace ${workspace}`}`;
+      : `aerospace list-windows --json --format '${format}' ${!workspace ? '--all' : `--workspace ${String(workspace)}`}`;
 
     const output = runCommandSync(aerospaceCommand);
 
     if (!output) {
-      logger.error('Failed to retrieve windows list or no output produced');
+      localLogger.error('Failed to retrieve windows list or no output produced');
       return null;
     }
 
@@ -189,7 +221,7 @@ export class AeroSpace {
         appPid: window['app-pid'],
         appExecPath: window['app-exec-path'],
         appBundlePath: window['app-bundle-path'],
-        workspace: window['workspace'] ?? 0,
+        workspace: window.workspace ?? 0,
         workspaceIsFocused: window['workspace-is-focused'],
         workspaceIsVisible: window['workspace-is-visible'],
         workspaceRootContainerLayout: window['workspace-root-container-layout'],
@@ -201,12 +233,15 @@ export class AeroSpace {
 
       return windows;
     } catch (err) {
-      logger.error(`Failed to parse windows output: ${(err as Error).message}`);
+      localLogger.error(`Failed to parse windows output: ${(err as Error).message}`);
       return null;
     }
   }
 
   listWorkspaces(focused = false): WorkspaceInfo[] | null {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.listWorkspaces.name}`,
+    });
     const format = [
       '%{workspace}',
       '%{workspace-is-focused}',
@@ -222,14 +257,14 @@ export class AeroSpace {
     );
 
     if (!output) {
-      logger.error('Failed to retrieve workspaces list or no output produced');
+      localLogger.error('Failed to retrieve workspaces list or no output produced');
       return null;
     }
 
     try {
       const parsed = JSON.parse(output) as RawWorkspaceJson[];
       const workspaces: WorkspaceInfo[] = parsed.map((workspace: RawWorkspaceJson) => ({
-        workspace: workspace['workspace'],
+        workspace: workspace.workspace,
         isFocused: workspace['workspace-is-focused'] ?? false,
         isVisible: workspace['workspace-is-visible'] ?? false,
         rootContainerLayout: workspace['workspace-root-container-layout'] ?? '',
@@ -240,16 +275,19 @@ export class AeroSpace {
 
       return workspaces;
     } catch (err) {
-      logger.error(`Failed to parse workspaces output: ${(err as Error).message}`);
+      localLogger.error(`Failed to parse workspaces output: ${(err as Error).message}`);
       return null;
     }
   }
 
   findWindow(name: string, title?: string, workspace?: string | number): WindowInfo | null {
+    const localLogger = logger.child({
+      context: `${AeroSpace.name}:${AeroSpace.prototype.findWindow.name}`,
+    });
     const windows = this.listWindows(workspace);
 
     if (!windows || windows.length === 0) {
-      logger.debug('No active windows');
+      localLogger.debug('No active windows');
       return null;
     }
 
@@ -260,13 +298,13 @@ export class AeroSpace {
     });
 
     if (foundWindows.length === 0) {
-      logger.debug('No window found');
+      localLogger.debug('No window found');
       return null;
     }
 
     if (foundWindows.length > 1) {
-      logger.debug(
-        `Found more than one matching window for windowName:${name} windowTitle: ${title}`
+      localLogger.debug(
+        `Found more than one matching window for windowName:${name} windowTitle: ${title ?? ''}`
       );
     }
 
@@ -348,7 +386,7 @@ export class AeroSpace {
       return null;
     }
 
-    const workspace = workspaces[0]['workspace'];
+    const workspace = workspaces[0].workspace;
     return workspace;
   }
 
@@ -357,11 +395,13 @@ export class AeroSpace {
       logger.error('missing mandatory parameters id or workspace');
     }
 
-    return runCommandSync(`aerospace move-node-to-workspace --window-id ${id} ${workspace}`);
+    return runCommandSync(
+      `aerospace move-node-to-workspace --window-id ${String(id)} ${String(workspace)}`
+    );
   }
 
   focus(id: string | number) {
-    return runCommandSync(`aerospace focus --window-id ${id}`);
+    return runCommandSync(`aerospace focus --window-id ${String(id)}`);
   }
 
   async hardReload() {
@@ -391,8 +431,8 @@ export class AeroSpace {
 
   setOuterGapsAndReload(left: string | number, right: string | number, workspace: string | number) {
     const monitorSide = parseInt(String(workspace), 10) < 10 ? 'main' : 'secondary';
-    const leftGap = `[{ monitor.${monitorSide} = ${left} }, 0]`;
-    const rightGap = `[{ monitor.${monitorSide} = ${right} }, 0]`;
+    const leftGap = `[{ monitor.${monitorSide} = ${String(left)} }, 0]`;
+    const rightGap = `[{ monitor.${monitorSide} = ${String(right)} }, 0]`;
     replaceTomlValues(CONFIG_FILE_PATH, [
       { key: 'outer.left', value: leftGap },
       { key: 'outer.right', value: rightGap },

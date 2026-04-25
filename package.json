@@ -11,39 +11,40 @@
   "author": "carlba",
   "homepage": "https://github.com/carlba/aerospacer",
   "bugs": {
-    "url": "https://github.com/carlba/aerospacer/issues"
+    "url": "https://github.com/carlba/aerospacer"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/carlba/aerospacer.git"
+    "url": "git@github.com:carlba/aerospacer"
   },
   "scripts": {
     "build": "tsc",
     "build-watch": "tsc --watch",
     "prepare": "npm run build",
-    "start": "node dist/index.js",
-    "start:dev": "tsx --env-file-if-exists=.env src/index.ts",
+    "start": "node --env-file-if-exists dist/index.js",
+    "start:dev": "tsx --env-file-if-exists=.env --watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "dependency:update": "npx ncu -u -x eslint",
-    "linux:install": "docker run --rm --platform linux/amd64 -v \"$PWD\":/app -w /app node:24-bullseye bash -lc \"npm install\"",
+    "dependency:update": "npx ncu -u",
+    "linux:install": "docker run --rm --platform linux/amd64 -v \"$PWD\":/app -w /app node:24-bullseye npm install",
     "linux:ci": "docker run --rm --platform linux/amd64 -v \"$PWD\":/app -w /app node:24-bullseye bash -lc \"npm ci && npm run lint && npm test && npm run build\""
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tsconfig/node24": "^24.0.4",
-    "@types/node": "^25.5.2",
-    "@vitest/coverage-v8": "^4.1.4",
-    "eslint": "^9.39.2",
-    "npm-check-updates": "^20.0.0",
-    "prettier": "^3.8.1",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "eslint": "^10.2.1",
+    "npm-check-updates": "^21.0.3",
+    "prettier": "^3.8.3",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0",
-    "vitest": "^4.1.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.0",
+    "vitest": "^4.1.5"
   },
   "dependencies": {
     "commander": "^11.1.0",
