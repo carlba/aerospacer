@@ -42,7 +42,7 @@ export class AeroSpace {
     if (fs.existsSync(RUN_FILE_PATH)) {
       this.load();
     } else {
-      this.initalize();
+      this.initialize();
     }
   }
 
@@ -55,7 +55,7 @@ export class AeroSpace {
     ) as Record<string, WorkspaceState>;
   }
 
-  initalize() {
+  initialize() {
     const screens = this.getScreensFromSwift();
 
     if (!screens) {
@@ -139,7 +139,7 @@ export class AeroSpace {
       return;
     } catch (error) {
       logger.error(`Failed to load Aerospace runtime ${RUN_FILE_PATH} ${(error as Error).message}`);
-      this.initalize();
+      this.initialize();
     }
   }
 
@@ -399,7 +399,6 @@ export class AeroSpace {
     ]);
     this.reloadConfig();
   }
-
   private getScreensFromSwift():
     | { x: number; y: number; width: number; height: number; name: string }[]
     | null {

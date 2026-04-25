@@ -23,7 +23,11 @@ export function computeGapForWorkspace(
 
   const allWindows =
     prefetchedWindows ?? ((aerospace.listWindows(workspace) ?? []) as WindowInfo[]);
-  const windows = allWindows.filter((w: WindowInfo) => w.windowLayout !== 'floating');
+  const windows = allWindows.filter(
+    (window: WindowInfo) =>
+      window.windowLayout !== 'floating' && window.windowLayout !== 'v_accordion'
+  );
+
   const count = windows.length > 0 ? windows.length : 1;
 
   const neededCentralWidth = count * DESIRED_WINDOW_WIDTH;
@@ -171,7 +175,7 @@ export function handleOnFocusChanged() {
 
   if (currentWorkspaceMode === LayoutMode.CONCENTRATE) {
     const windowsInCurrentWorkspace = (aerospace.listWindows(activeWorkspaceName) ?? []).filter(
-      win => win.windowLayout !== 'floating'
+      windows => windows.windowLayout !== 'floating' && windows.windowLayout !== 'v_accordion'
     );
 
     logger.info({
