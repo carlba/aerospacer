@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Argument, Command, InvalidArgumentError } from 'commander';
 import { aerospace } from './aerospace.js';
 import { LayoutMode, TERMINAL_WORKSPACE, TERMINAL } from './types.js';
 import type { WorkspaceState, WindowInfo } from './types.js';
@@ -6,6 +6,38 @@ import { LOGGER, config } from '../registry.js';
 
 const DESIRED_WINDOW_WIDTH = 1280;
 const MIN_GAP = 64;
+const VALID_RESIZE_MODES = ['smart', 'smart-opposite', 'width', 'height'] as const;
+
+type ResizeMode = (typeof VALID_RESIZE_MODES)[number];
+
+type ResizeSpec =
+  | { kind: 'absolute'; value: number }
+  | { kind: 'delta'; value: number }
+  | { kind: 'percent'; value: number };
+
+function parseResizeSpec(value: string): ResizeSpec | null {
+  if (value.endsWith('%')) {
+    const numberValue = Number(value.slice(0, -1));
+    if (!Number.isFinite(numberValue)) {
+      return null;
+    }
+    return { kind: 'percent', value: numberValue };
+  }
+
+  if (value.startsWith('+') || value.startsWith('-')) {
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue)) {
+      return null;
+    }
+    return { kind: 'delta', value: numberValue };
+  }
+
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return null;
+  }
+  return { kind: 'absolute', value: numberValue };
+}
 
 const logger = LOGGER.child({ module: 'handlers' });
 
@@ -219,6 +251,106 @@ export function handleRefreshResolutionInState() {
   aerospace.persistResolutionOfScreens();
 }
 
+function getMonitorDimension(mode: 'width' | 'height'): number | null {
+  const display = aerospace.getCurrentDisplay();
+  if (!display) {
+    return null;
+  }
+
+  const screen = aerospace.aerospaceRun.screens.find(screen => screen.name === display.monitorName);
+  return screen ? (mode === 'width' ? screen.width : screen.height) : null;
+}
+
+export function handleResizeToggle(mode: ResizeMode, targets: string[]) {
+  const localLogger = logger.child({
+    context: handleResizeToggle.name,
+    mode,
+    targets,
+  });
+
+  if (targets.length < 2) {
+    localLogger.error('At least two resize targets are required');
+    return;
+  }
+
+  const parsedSpecs = targets.map(target => ({
+    target,
+    spec: parseResizeSpec(target),
+  }));
+
+  if (parsedSpecs.some(entry => entry.spec === null)) {
+    localLogger.error('Resize targets must be finite numbers, deltas (+/-n), or percentages (n%)');
+    return;
+  }
+
+  const focusedWindow = aerospace.getFocusedWindow();
+  if (!focusedWindow) {
+    localLogger.error('No focused window found');
+    return;
+  }
+
+  const windowId = String(focusedWindow['window-id']);
+  const stateKey = `${mode}:${windowId}`;
+  const previousTarget = aerospace.aerospaceRun.resizeToggleState[stateKey];
+  const currentIndex = previousTarget === undefined ? -1 : targets.indexOf(previousTarget);
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % targets.length;
+  const nextTarget = targets[nextIndex];
+  const parsedSpec = parsedSpecs[nextIndex].spec!;
+
+  let resizeInput: number | string;
+  if (parsedSpec.kind === 'percent') {
+    if (mode !== 'width' && mode !== 'height') {
+      localLogger.error('Percent resize is only supported for width or height');
+      return;
+    }
+
+    const monitorDimension = getMonitorDimension(mode);
+    if (monitorDimension === null) {
+      localLogger.error('Unable to resolve monitor dimension for percent resize');
+      return;
+    }
+
+    resizeInput = String(Math.round((monitorDimension * parsedSpec.value) / 100));
+  } else if (parsedSpec.kind === 'absolute') {
+    resizeInput = String(parsedSpec.value);
+  } else {
+    resizeInput = parsedSpec.value;
+  }
+
+  if (resizeInput === 0) {
+    localLogger.debug('Window already at target size');
+    return;
+  }
+
+  const result = aerospace.resize(mode, resizeInput, { windowId });
+  if (result === null) {
+    localLogger.error('Failed to resize focused window');
+    return;
+  }
+
+  aerospace.aerospaceRun.resizeToggleState = {
+    ...aerospace.aerospaceRun.resizeToggleState,
+    [stateKey]: nextTarget,
+  };
+  aerospace.persist();
+
+  localLogger.info({ windowId, nextTarget, resizeInput }, 'Resized focused window');
+}
+
+export function handleTest(workspace: string) {
+  const focusedWindow = aerospace.getFocusedWindow();
+
+  if (focusedWindow) {
+    aerospace.moveNodeToWorkSpace(focusedWindow['window-id'], workspace);
+    if (focusedWindow['app-name'] !== 'Code') {
+      aerospace.move('right', { windowId: focusedWindow['window-id'] });
+      aerospace.resize('width', 1080, { windowId: focusedWindow['window-id'] });
+    }
+  }
+
+  logger.info({ focusedWindow, workspace }, 'done handling test');
+}
+
 export function main() {
   const mainLogger = logger.child({ context: 'main' });
   mainLogger.info({ args: process.argv.slice(2) }, `Aerospace application started`);
@@ -262,6 +394,40 @@ export function main() {
     .action(() => {
       mainLogger.info('refresh resolution');
       aerospace.persistResolutionOfScreens();
+    });
+
+  program
+    .command('resize-toggle')
+    .description('Toggle through multiple resize targets for the focused window')
+    .addArgument(new Argument('<mode>', 'resize mode').choices(VALID_RESIZE_MODES))
+    .argument(
+      '<targets...>',
+      'resize targets; each can be a value, signed delta, or percent like 50% (at least two)',
+      (value: string, targets: string[] = []) => {
+        logger.info({ value });
+        if (!parseResizeSpec(value)) {
+          throw new InvalidArgumentError(
+            'Resize targets must be finite numbers, deltas (+/-n), or percentages (n%)'
+          );
+        }
+        return [...targets, value];
+      }
+    )
+    .action((mode: ResizeMode, targets: string[]) => {
+      if (targets.length < 2) {
+        logger.error('Minimum two targets must be given');
+        throw new InvalidArgumentError('Minimum two targets must be given');
+      }
+
+      handleResizeToggle(mode, targets);
+    });
+
+  program
+    .command('test')
+    .description('test')
+    .argument('<workspace>', 'workspace')
+    .action((workspace: string) => {
+      handleTest(workspace);
     });
 
   program.parse(process.argv);

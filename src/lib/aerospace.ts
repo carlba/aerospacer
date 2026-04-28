@@ -38,6 +38,7 @@ const aerospaceRunSchema = z.object({
   previousWorkspace: z.number().int().nonnegative().default(0),
   workspaceState: workspaceStateSchema,
   screens: z.array(screenSchema),
+  resizeToggleState: z.record(z.string(), z.string()).default({}),
 });
 
 export class AeroSpace {
@@ -75,6 +76,7 @@ export class AeroSpace {
       previousWorkspace: 0,
       workspaceState: this.createDefaultWorkspaceState(),
       screens,
+      resizeToggleState: {},
     };
 
     this.persist();
@@ -147,6 +149,7 @@ export class AeroSpace {
         ...parseResult.data.workspaceState,
       },
       screens: parseResult.data.screens,
+      resizeToggleState: parseResult.data.resizeToggleState,
     };
   }
 
@@ -410,11 +413,37 @@ export class AeroSpace {
     await new Promise<void>(resolve => setTimeout(resolve, 50));
   }
 
-  move(direction: 'left' | 'right') {
-    const validDirections = ['left', 'right'];
-    if (!validDirections.includes(direction)) {
-      logger.error(`direction must be in ${validDirections.join(' ,')}`);
+  move(
+    direction: 'left' | 'down' | 'up' | 'right',
+    options?: {
+      windowId?: string | number;
+      boundaries?: string;
+      boundariesAction?: string;
     }
+  ) {
+    const validDirections = ['left', 'down', 'up', 'right'] as const;
+
+    if (!validDirections.includes(direction)) {
+      logger.error(`direction must be one of ${validDirections.join(', ')}`);
+      return null;
+    }
+
+    const args = ['aerospace move'];
+
+    if (options?.windowId !== undefined) {
+      args.push(`--window-id ${String(options.windowId)}`);
+    }
+
+    if (options?.boundaries) {
+      args.push(`--boundaries ${options.boundaries}`);
+    }
+
+    if (options?.boundariesAction) {
+      args.push(`--boundaries-action ${options.boundariesAction}`);
+    }
+
+    args.push(direction);
+    return runCommandSync(args.join(' '));
   }
 
   reloadConfig() {
@@ -427,6 +456,48 @@ export class AeroSpace {
       { key: 'outer.right', value },
     ]);
     this.reloadConfig();
+  }
+
+  /**
+   * Execute an Aerospace resize command.
+   *
+   * This method mirrors the CLI usage:
+   * `aerospace resize [-h|--help] [--window-id <window-id>] (smart|smart-opposite|width|height) [+|-]<number>`.
+   *
+   * @param mode - The resize mode to apply.
+   * @param amount - The resize amount. A plain number is interpreted as an absolute target;
+   *                 use a string with `+` or `-` to indicate a delta change.
+   * @param options.windowId - Optional window id to target.
+   * @returns The stdout of the command, or null when input validation fails.
+   */
+  resize(
+    mode: 'smart' | 'smart-opposite' | 'width' | 'height',
+    amount: number | string,
+    options?: { windowId?: string | number }
+  ) {
+    const validModes = ['smart', 'smart-opposite', 'width', 'height'] as const;
+    if (!validModes.includes(mode)) {
+      logger.error(`resize mode must be one of ${validModes.join(', ')}`);
+      return null;
+    }
+
+    if (typeof amount === 'number' && !Number.isFinite(amount)) {
+      logger.error('resize amount must be a finite number');
+      return null;
+    }
+
+    const normalizedAmount = typeof amount === 'number' ? String(amount) : String(amount);
+
+    const args = ['aerospace resize'];
+
+    if (options?.windowId !== undefined) {
+      args.push(`--window-id ${String(options.windowId)}`);
+    }
+
+    args.push(mode, normalizedAmount);
+
+    logger.info(args.join(' '));
+    return runCommandSync(args.join(' '));
   }
 
   setOuterGapsAndReload(left: string | number, right: string | number, workspace: string | number) {

@@ -57,6 +57,8 @@ export interface RawWindowJson {
   'window-is-fullscreen': boolean | string;
   'window-layout': string;
   'window-parent-container-layout': string;
+  'window-width'?: number | string;
+  'window-height'?: number | string;
   'app-bundle-id'?: string;
   'app-name'?: string;
   'app-pid'?: number | string;
@@ -100,4 +102,5 @@ export interface AerospaceRun {
   previousWorkspace: number;
   workspaceState: Record<string, WorkspaceState | undefined>;
   screens: Screen[];
+  resizeToggleState: Record<string, string | undefined>;
 }

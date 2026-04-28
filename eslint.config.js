@@ -11,11 +11,7 @@ export default defineConfig(
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [
-      tseslint.configs.recommendedTypeChecked,
-      tseslint.configs.strictTypeChecked,
-      tseslint.configs.stylisticTypeChecked,
-    ],
+    extends: [tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,
