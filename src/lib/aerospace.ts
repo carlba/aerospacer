@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { z } from 'zod';
-import { runCommandSync, replaceTomlValues } from './commands.js';
+import { runCommandSync } from './commands.js';
 import { LayoutMode } from './types.js';
 import type {
   WindowInfo,
@@ -13,6 +13,8 @@ import type {
 } from './types.js';
 import { LOGGER, config } from '../registry.js';
 import path from 'path';
+import { dump as tomlDump, load as tomlLoad } from 'js-toml';
+import type { AeroSpaceConfig } from './aerospace-config.interface.js';
 
 export const CONFIG_FILE_PATH = path.join(config.HOME, '.aerospace.toml');
 
@@ -133,6 +135,8 @@ export class AeroSpace {
   }
 
   persist() {
+    const localLogger = logger.child({ context: this.persist.name });
+    localLogger.debug('Persisting runtime data');
     fs.writeFileSync(config.RUN_FILE_PATH, JSON.stringify(this.aerospaceRun));
   }
 
@@ -450,14 +454,6 @@ export class AeroSpace {
     runCommandSync('aerospace reload-config');
   }
 
-  setOuterLeftRightGapsAndReload(value: string | number) {
-    replaceTomlValues(CONFIG_FILE_PATH, [
-      { key: 'outer.left', value },
-      { key: 'outer.right', value },
-    ]);
-    this.reloadConfig();
-  }
-
   /**
    * Execute an Aerospace resize command.
    *
@@ -500,16 +496,58 @@ export class AeroSpace {
     return runCommandSync(args.join(' '));
   }
 
-  setOuterGapsAndReload(left: string | number, right: string | number, workspace: string | number) {
-    const monitorSide = parseInt(String(workspace), 10) < 10 ? 'main' : 'secondary';
-    const leftGap = `[{ monitor.${monitorSide} = ${String(left)} }, 0]`;
-    const rightGap = `[{ monitor.${monitorSide} = ${String(right)} }, 0]`;
-    replaceTomlValues(CONFIG_FILE_PATH, [
-      { key: 'outer.left', value: leftGap },
-      { key: 'outer.right', value: rightGap },
-    ]);
-    this.reloadConfig();
+  writeConfig(config: AeroSpaceConfig, reload = true) {
+    fs.writeFileSync(CONFIG_FILE_PATH, tomlDump(config));
+    if (reload) {
+      this.reloadConfig();
+    }
   }
+
+  readConfig() {
+    return tomlLoad(fs.readFileSync(CONFIG_FILE_PATH, 'utf8')) as AeroSpaceConfig;
+  }
+
+  setOuterGapsAndReload(left: string | number, right: string | number, workspace: string | number) {
+    const localLogger = logger.child({
+      context: this.setOuterGapsAndReload.name,
+      left,
+      right,
+      workspace,
+    });
+    const monitorSideActive = parseInt(String(workspace), 10) < 10 ? 'main' : 'secondary';
+
+    const tomlConfig = this.readConfig();
+
+    const parsedleft = typeof left === 'string' ? parseInt(left, 10) : left;
+    const parsedRight = typeof right === 'string' ? parseInt(right, 10) : right;
+
+    if (tomlConfig.gaps.outer.left === 0 && tomlConfig.gaps.outer.right === 0) {
+      tomlConfig.gaps.outer = {
+        left: [{ monitor: { main: 0 } }, { monitor: { secondary: 0 } }, 0],
+        right: [{ monitor: { main: 0 } }, { monitor: { secondary: 0 } }, 0],
+      };
+    }
+
+    if (Array.isArray(tomlConfig.gaps.outer.left) && Array.isArray(tomlConfig.gaps.outer.right)) {
+      tomlConfig.gaps.outer.left.forEach(pattern => {
+        if (typeof pattern === 'object' && monitorSideActive in pattern.monitor) {
+          pattern.monitor[monitorSideActive] = parsedleft;
+        }
+      });
+      tomlConfig.gaps.outer.right.forEach(pattern => {
+        if (typeof pattern === 'object' && monitorSideActive in pattern.monitor) {
+          pattern.monitor[monitorSideActive] = parsedRight;
+        }
+      });
+    } else {
+      throw new Error('gaps.outer is malformed should be an array');
+    }
+
+    localLogger.debug('Modified other gaps');
+
+    this.writeConfig(tomlConfig, true);
+  }
+
   private getScreensFromSwift():
     | { x: number; y: number; width: number; height: number; name: string }[]
     | null {

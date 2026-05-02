@@ -10,6 +10,7 @@ vi.mock('./commands.js', async () => {
 
 import { AeroSpace } from './aerospace.js';
 import { runCommandSync } from './commands.js';
+import type { AeroSpaceConfig } from './aerospace-config.interface.js';
 
 const mockedRunCommandSync = runCommandSync as unknown as ReturnType<typeof vi.fn>;
 
@@ -100,6 +101,52 @@ describe('AeroSpace.resize', () => {
 
     expect(mockedRunCommandSync).toHaveBeenCalledWith(
       'aerospace resize --window-id 456 smart-opposite 10'
+    );
+  });
+
+  it('updates gap configuration in config for main screen', () => {
+    const instance = Object.create(AeroSpace.prototype) as AeroSpace;
+    vi.spyOn(instance, 'readConfig').mockReturnValue({
+      gaps: { outer: { left: 0, right: 0 } },
+    } as AeroSpaceConfig);
+
+    const mockedInstanceWriteConfig = vi.spyOn(instance, 'writeConfig').mockReturnValue();
+
+    instance.setOuterGapsAndReload(500, 500, 2);
+
+    expect(mockedInstanceWriteConfig).toHaveBeenCalledWith(
+      {
+        gaps: {
+          outer: {
+            left: [{ monitor: { main: 500 } }, { monitor: { secondary: 0 } }, 0],
+            right: [{ monitor: { main: 500 } }, { monitor: { secondary: 0 } }, 0],
+          },
+        },
+      },
+      true
+    );
+  });
+
+  it('updates gap configuration in config for secondary screen', () => {
+    const instance = Object.create(AeroSpace.prototype) as AeroSpace;
+    vi.spyOn(instance, 'readConfig').mockReturnValue({
+      gaps: { outer: { left: 0, right: 0 } },
+    } as AeroSpaceConfig);
+
+    const mockedInstanceWriteConfig = vi.spyOn(instance, 'writeConfig').mockReturnValue();
+
+    instance.setOuterGapsAndReload(500, 500, 10);
+
+    expect(mockedInstanceWriteConfig).toHaveBeenCalledWith(
+      {
+        gaps: {
+          outer: {
+            left: [{ monitor: { main: 0 } }, { monitor: { secondary: 500 } }, 0],
+            right: [{ monitor: { main: 0 } }, { monitor: { secondary: 500 } }, 0],
+          },
+        },
+      },
+      true
     );
   });
 });

@@ -4,7 +4,7 @@ import { LayoutMode, TERMINAL_WORKSPACE, TERMINAL } from './types.js';
 import type { WorkspaceState, WindowInfo } from './types.js';
 import { LOGGER, config } from '../registry.js';
 
-const DESIRED_WINDOW_WIDTH = 1280;
+const DESIRED_WINDOW_WIDTH = 1460;
 const MIN_GAP = 64;
 const VALID_RESIZE_MODES = ['smart', 'smart-opposite', 'width', 'height'] as const;
 
@@ -146,22 +146,26 @@ export function handleConcentrateMode() {
     ? previousWorkspaceState.layoutMode
     : LayoutMode.FALSE;
 
-  const localLogger = logger.child({
+  let localLogger = logger.child({
     context: handleConcentrateMode.name,
     previousWorkspaceKey,
     previousWorkspaceLayoutMode,
   });
 
   if (previousWorkspaceLayoutMode === LayoutMode.CONCENTRATE) {
-    localLogger.debug(`Set ${LayoutMode.FALSE}-mode`);
-    aerospace.setOuterLeftRightGapsAndReload(0);
+    localLogger = localLogger.child({ gaps: [0, 0] });
+    const targetWorkspace = aerospace.aerospaceRun.previousWorkspace;
+    aerospace.setOuterGapsAndReload(0, 0, targetWorkspace);
     aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.FALSE);
   } else {
     const targetWorkspace = aerospace.aerospaceRun.previousWorkspace;
     const gap = computeGapForWorkspace(targetWorkspace);
+    localLogger = localLogger.child({ gaps: [gap, gap] });
     aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
     aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.CONCENTRATE);
   }
+
+  localLogger.debug('Change of concentration mode has been handled ');
 }
 
 export function handleToggleTerminal() {
@@ -429,6 +433,9 @@ export function main() {
     .action((workspace: string) => {
       handleTest(workspace);
     });
-
-  program.parse(process.argv);
+  try {
+    program.parse(process.argv);
+  } catch (error: unknown) {
+    logger.error(error, 'Unhandled exception');
+  }
 }
