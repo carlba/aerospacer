@@ -21,7 +21,7 @@
     "build": "tsc",
     "build-watch": "tsc --watch",
     "prepare": "npm run build",
-    "start": "node --env-file-if-exists dist/index.js",
+    "start": "node --env-file-if-exists='.env' dist/index.js",
     "start:dev": "tsx --env-file-if-exists=.env --watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest watch",
@@ -29,26 +29,48 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "dependency:update": "npx ncu -u"
+    "dependency:update": "npx ncu -u",
+    "linux:install": "docker run --rm --platform linux/amd64 -v \"$PWD\":/app -w /app node:24-bullseye npm install",
+    "linux:ci": "docker run --rm --platform linux/amd64 -v \"$PWD\":/app -w /app node:24-bullseye bash -lc \"npm ci && npm run lint && npm test && npm run build\""
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@tsconfig/node24": "^24.0.4",
-    "@types/node": "^25.6.0",
-    "@vitest/coverage-v8": "^4.1.5",
-    "eslint": "^10.2.1",
-    "npm-check-updates": "^21.0.3",
-    "prettier": "^3.8.3",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.0",
-    "vitest": "^4.1.5"
+    "@eslint/js": "10.0.1",
+    "@tsconfig/node24": "24.0.4",
+    "@types/node": "25.6.0",
+    "@vitest/coverage-v8": "4.1.5",
+    "eslint": "10.2.1",
+    "npm-check-updates": "21.0.3",
+    "prettier": "3.8.3",
+    "tsx": "4.21.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.59.0",
+    "vitest": "4.1.5"
   },
   "dependencies": {
     "commander": "^11.1.0",
     "js-toml": "^1.1.0",
-    "pino": "^10.3.1",
-    "pino-pretty": "^13.1.3",
-    "zod": "^4.3.6"
+    "pino": "10.3.1",
+    "pino-pretty": "13.1.3",
+    "zod": "4.3.6"
+  },
+  "templater": {
+    "managedDependencies": [
+      "pino",
+      "pino-pretty",
+      "zod"
+    ],
+    "managedDevDependencies": [
+      "eslint",
+      "@eslint/js",
+      "@tsconfig/node24",
+      "@types/node",
+      "@vitest/coverage-v8",
+      "npm-check-updates",
+      "prettier",
+      "tsx",
+      "typescript",
+      "typescript-eslint",
+      "vitest"
+    ]
   }
 }

@@ -56,7 +56,7 @@ export class AeroSpace {
 
   private createDefaultWorkspaceState(): Record<string, WorkspaceState> {
     return Object.fromEntries(
-      Array.from({ length: 10 }, (_, i) => [
+      Array.from({ length: 10 }, (__, i) => [
         String(i + 1),
         { layoutMode: LayoutMode.FALSE, windowCount: 0 },
       ])

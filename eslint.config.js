@@ -12,10 +12,33 @@ export default defineConfig(
   {
     files: ['**/*.{ts,tsx}'],
     extends: [tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked],
+    rules: {
+      'id-length': [
+        'error',
+        {
+          min: 2,
+          exceptions: ['i', 'j', 'k'],
+          properties: 'never',
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[object.name='process'][property.name='env']",
+          message: 'Use validated config values instead of process.env directly.',
+        },
+      ],
+    },
     languageOptions: {
       parserOptions: {
         projectService: true,
       },
+    },
+  },
+  {
+    files: ['src/lib/config.ts', 'src/**/*.spec.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   }
 );
