@@ -387,13 +387,23 @@ export class AeroSpace {
   }
 
   getActiveWorkspaceName(): string | number | null {
-    const workspaces = this.listWorkspaces(true);
-    if (!workspaces) {
-      logger.error('Failed to get focused workspace');
+    const localLogger = logger.child({ context: this.getActiveWorkspaceName.name });
+
+    const output = runCommandSync(`aerospace list-workspaces --focused --json`);
+
+    if (!output) {
+      localLogger.error('Failed to retrieve workspaces list or no output produced');
       return null;
     }
 
-    const workspace = workspaces[0].workspace;
+    const parsedJsonCommandOutput = JSON.parse(output) as RawWorkspaceJson[];
+
+    if (parsedJsonCommandOutput.length === 0) {
+      localLogger.error('No active workspace could be found. Should never happen');
+    }
+
+    const [{ workspace }] = parsedJsonCommandOutput;
+
     return workspace;
   }
 
