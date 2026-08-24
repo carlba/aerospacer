@@ -2,6 +2,7 @@ import { LOGGER } from '../registry.js';
 import { LayoutMode } from './types.js';
 import type { WindowInfo } from './types.js';
 import { aerospace } from './aerospace.js';
+import { TILE_DROP_URL } from '../consts.js';
 
 type ResizeSpec =
   | { kind: 'absolute'; value: number }
@@ -97,17 +98,56 @@ export function setNewWorkspaceLayout(
     case LayoutMode.CONCENTRATE:
       {
         localLogger.debug('Switching workspace');
-        const gap = computeGapForWorkspace(targetWorkspace);
-        aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
+        // const gap = computeGapForWorkspace(targetWorkspace);
+        // aerospace.setOuterGapsAndReload(gap, gap, targetWorkspace);
         aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.CONCENTRATE);
       }
       break;
     case LayoutMode.FALSE:
       localLogger.debug('Switching workspace');
-      aerospace.setOuterGapsAndReload(0, 0, targetWorkspace);
+      // aerospace.setOuterGapsAndReload(0, 0, targetWorkspace);
       aerospace.setPreviousWorkspaceLayoutMode(LayoutMode.FALSE);
       break;
     default:
       localLogger.error(`Unknown layout mode`);
   }
+}
+
+export async function notifyTileDrop(workspaceNumber: string) {
+  const payload = { active: true };
+  try {
+    const res = await fetch(TILE_DROP_URL + `/workspaces/${workspaceNumber}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    logger.info(
+      { result: await res.json().then(), workspaceNumber },
+      'Workspace notification sent'
+    );
+  } catch (err) {
+    logger.error({ err: String(err) }, 'Failed to send workspace notification');
+  }
+}
+
+export async function toggleTileDropFocusMode(workspaceNumber: string) {
+  try {
+    const res = await fetch(TILE_DROP_URL + `/workspaces/${workspaceNumber}/toggle-focus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    logger.info({ result: await res.json().then(), workspaceNumber }, 'Toggle Focus Mode sent');
+  } catch (err) {
+    logger.error({ err: String(err) }, 'Failed to send toggle focus request');
+  }
+}
+
+export function getMonitorDimension(mode: 'width' | 'height'): number | null {
+  const display = aerospace.getCurrentDisplay();
+  if (!display) {
+    return null;
+  }
+
+  const screen = aerospace.aerospaceRun.screens.find(screen => screen.name === display.monitorName);
+  return screen ? (mode === 'width' ? screen.width : screen.height) : null;
 }
